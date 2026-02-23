@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rate My Fridge</title>
+  <meta property="og:title" content="Rate My Fridge" />
+  <meta property="og:description" content="Upload a fridge pic. Get roasted. Get fed. Get your score." />
+  <meta property="og:url" content="https://rate-my-fridge.vercel.app" />
   <style>
     :root {
       --bg1: #5b2cff;
@@ -38,18 +41,35 @@
     .sub { margin: 8px 0 0; color: var(--muted); font-size: 0.98rem; }
     .row { display: grid; gap: 10px; }
     @media (min-width: 640px) { .row.two { grid-template-columns: 1fr 1fr; } }
-    label { font-size: 0.9rem; color: var(--muted); display: block; margin-bottom: 6px; }
-    input[type="file"] {
-      width: 100%; border-radius: 12px; border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.06); color: var(--text); padding: 12px; font-size: 0.95rem;
-    }
     .btn {
       width: 100%; border: 0; border-radius: 12px; padding: 12px 14px;
       font-weight: 700; font-size: 0.96rem; cursor: pointer;
     }
     .btn-primary { background: var(--accent); color: #141414; }
     .btn-secondary { background: #ffffff; color: #111; }
+    .btn-social { background: #1f2345; color: #fff; border: 1px solid var(--border); }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .upload-zone {
+      border: 2px dashed rgba(255,255,255,0.55);
+      border-radius: 16px;
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .upload-zone:hover { transform: translateY(-1px); }
+    .upload-zone.dragover {
+      background: rgba(255, 231, 74, 0.15);
+      border-color: var(--accent);
+    }
+    .upload-zone strong { font-size: 1.02rem; }
+    .upload-zone small { color: var(--muted); margin-top: 6px; display: block; }
+
     .preview {
       width: 100%; max-height: 320px; object-fit: contain; border-radius: 14px;
       border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05);
@@ -81,19 +101,32 @@
     </section>
 
     <section class="card">
-      <div class="row">
+      <input id="photoInput" type="file" accept="image/*" hidden />
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+
+      <div id="uploadZone" class="upload-zone" role="button" tabindex="0" aria-label="Upload fridge photo">
         <div>
-          <label for="photoInput">Fridge photo</label>
-          <input id="photoInput" type="file" accept="image/*" capture="environment" />
+          <strong>Drop a fridge pic here, paste from clipboard, or click to upload.</strong>
+          <small>Tip: You can press Ctrl+V after taking a screenshot of your fridge.</small>
         </div>
       </div>
 
       <div style="margin-top:10px;" class="row two">
+        <button id="cameraBtn" class="btn btn-secondary">📷 Open Camera</button>
         <button id="analyzeBtn" class="btn btn-primary">Rate my fridge</button>
-        <button id="shareBtn" class="btn btn-secondary" disabled>Share score + roast</button>
       </div>
-      <div style="margin-top:10px;" class="row">
+
+      <div style="margin-top:10px;" class="row two">
+        <button id="shareBtn" class="btn btn-secondary" disabled>Copy share text</button>
         <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
+      </div>
+
+      <div style="margin-top:10px;" class="row">
+        <div class="row two">
+          <button id="shareXBtn" class="btn btn-social" disabled>Share on X</button>
+          <button id="shareFacebookBtn" class="btn btn-social" disabled>Share on Facebook</button>
+        </div>
+        <button id="shareRedditBtn" class="btn btn-social" disabled>Share on Reddit</button>
       </div>
 
       <p class="tiny">MVP note: analysis runs through a serverless API route so the Google API key stays on the backend.</p>
@@ -122,10 +155,20 @@
   </main>
 
   <script>
+    const APP_URL = 'https://rate-my-fridge.vercel.app';
+
     const photoInput = document.getElementById('photoInput');
+    const cameraInput = document.getElementById('cameraInput');
+    const uploadZone = document.getElementById('uploadZone');
+    const cameraBtn = document.getElementById('cameraBtn');
+
     const analyzeBtn = document.getElementById('analyzeBtn');
     const shareBtn = document.getElementById('shareBtn');
     const copyResultsBtn = document.getElementById('copyResultsBtn');
+    const shareXBtn = document.getElementById('shareXBtn');
+    const shareFacebookBtn = document.getElementById('shareFacebookBtn');
+    const shareRedditBtn = document.getElementById('shareRedditBtn');
+
     const preview = document.getElementById('preview');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
@@ -165,9 +208,11 @@
       });
     }
 
-    photoInput.addEventListener('change', () => {
-      const file = photoInput.files && photoInput.files[0];
-      if (!file) return;
+    function setImageFromFile(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        setStatus('Please provide an image file.', 'err');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         imageDataUrl = reader.result;
@@ -176,6 +221,60 @@
       };
       reader.onerror = () => setStatus('Could not read image file.', 'err');
       reader.readAsDataURL(file);
+    }
+
+    function enableSocialButtons(enabled) {
+      shareXBtn.disabled = !enabled;
+      shareFacebookBtn.disabled = !enabled;
+      shareRedditBtn.disabled = !enabled;
+    }
+
+    function openShare(url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    uploadZone.addEventListener('click', () => photoInput.click());
+    uploadZone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        photoInput.click();
+      }
+    });
+
+    cameraBtn.addEventListener('click', () => cameraInput.click());
+
+    photoInput.addEventListener('change', () => setImageFromFile(photoInput.files && photoInput.files[0]));
+    cameraInput.addEventListener('change', () => setImageFromFile(cameraInput.files && cameraInput.files[0]));
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      uploadZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+      });
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      setImageFromFile(file);
+    });
+
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          setImageFromFile(file);
+          break;
+        }
+      }
     });
 
     analyzeBtn.addEventListener('click', async () => {
@@ -187,6 +286,7 @@
       analyzeBtn.disabled = true;
       shareBtn.disabled = true;
       copyResultsBtn.disabled = true;
+      enableSocialButtons(false);
       setStatus('Analyzing your fridge... 🕵️‍♂️', '');
 
       try {
@@ -224,7 +324,7 @@
         renderRecipes(recipes);
         listToHtml(shopping, shoppingEl);
 
-        lastShareText = `My fridge scored ${score}/10 — '${roastName}' 🦞 ratemyfridge.app`;
+        lastShareText = `My fridge just scored ${score}/10 — '${roastName}' 🦞 Try it: ${APP_URL}`;
         lastCopyResultsText = [
           `Fridge Score: ${score}/10`,
           `Roast Name: ${roastName}`,
@@ -238,6 +338,7 @@
 
         shareBtn.disabled = false;
         copyResultsBtn.disabled = false;
+        enableSocialButtons(true);
         resultsEl.classList.add('show');
         setStatus('Done. Your fridge has been judged. ⚖️', 'ok');
       } catch (err) {
@@ -266,6 +367,21 @@
       } catch {
         setStatus('Could not copy automatically. Try again on HTTPS/localhost.', 'err');
       }
+    });
+
+    shareXBtn.addEventListener('click', () => {
+      if (!lastShareText) return;
+      openShare(`https://twitter.com/intent/tweet?text=${encodeURIComponent(lastShareText)}`);
+    });
+
+    shareFacebookBtn.addEventListener('click', () => {
+      if (!lastShareText) return;
+      openShare(`https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(lastShareText)}`);
+    });
+
+    shareRedditBtn.addEventListener('click', () => {
+      if (!lastShareText) return;
+      openShare(`https://www.reddit.com/submit?title=${encodeURIComponent(lastShareText)}`);
     });
   </script>
 </body>
