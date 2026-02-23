@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rate My Fridge</title>
+  <style>
+    :root {
+      --bg1: #5b2cff;
+      --bg2: #00c2ff;
+      --card: #101229;
+      --text: #f7f9ff;
+      --muted: #b7c0ff;
+      --accent: #ffe74a;
+      --danger: #ff5d7a;
+      --ok: #44d17a;
+      --border: rgba(255, 255, 255, 0.18);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(145deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .app { max-width: 780px; margin: 0 auto; display: grid; gap: 14px; }
+    .card {
+      background: linear-gradient(180deg, rgba(16,18,41,0.95), rgba(8,10,26,0.95));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    }
+    h1 { margin: 0; font-size: clamp(1.6rem, 4.8vw, 2.4rem); line-height: 1.1; }
+    .sub { margin: 8px 0 0; color: var(--muted); font-size: 0.98rem; }
+    .row { display: grid; gap: 10px; }
+    @media (min-width: 640px) { .row.two { grid-template-columns: 1fr 1fr; } }
+    label { font-size: 0.9rem; color: var(--muted); display: block; margin-bottom: 6px; }
+    input[type="file"] {
+      width: 100%; border-radius: 12px; border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.06); color: var(--text); padding: 12px; font-size: 0.95rem;
+    }
+    .btn {
+      width: 100%; border: 0; border-radius: 12px; padding: 12px 14px;
+      font-weight: 700; font-size: 0.96rem; cursor: pointer;
+    }
+    .btn-primary { background: var(--accent); color: #141414; }
+    .btn-secondary { background: #ffffff; color: #111; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .preview {
+      width: 100%; max-height: 320px; object-fit: contain; border-radius: 14px;
+      border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05);
+    }
+    .status { margin-top: 8px; font-size: 0.92rem; color: var(--muted); min-height: 1.2rem; }
+    .status.err { color: var(--danger); }
+    .status.ok { color: var(--ok); }
+    .results { display: none; }
+    .results.show { display: block; }
+    .score { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 8px; }
+    .score-num {
+      font-size: clamp(2.2rem, 10vw, 4rem); font-weight: 900; line-height: 1;
+      color: var(--accent); text-shadow: 0 4px 20px rgba(255, 231, 74, 0.35);
+    }
+    .pill {
+      display: inline-block; font-size: 0.78rem; border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 10px; color: var(--muted); margin-bottom: 8px;
+    }
+    ul { margin: 8px 0 0 18px; }
+    li { margin: 4px 0; }
+    .tiny { margin-top: 6px; color: var(--muted); font-size: 0.8rem; line-height: 1.35; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <h1>🧊 Rate My Fridge</h1>
+      <p class="sub">Upload a fridge pic. Get roasted. Get fed. Get your score. 😂🥗</p>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <div>
+          <label for="photoInput">Fridge photo</label>
+          <input id="photoInput" type="file" accept="image/*" capture="environment" />
+        </div>
+      </div>
+
+      <div style="margin-top:10px;" class="row two">
+        <button id="analyzeBtn" class="btn btn-primary">Rate my fridge</button>
+        <button id="shareBtn" class="btn btn-secondary" disabled>Share score + roast</button>
+      </div>
+      <div style="margin-top:10px;" class="row">
+        <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
+      </div>
+
+      <p class="tiny">MVP note: analysis runs through a serverless API route so the Google API key stays on the backend.</p>
+      <div id="status" class="status"></div>
+    </section>
+
+    <section class="card">
+      <img id="preview" class="preview" alt="Fridge preview" />
+    </section>
+
+    <section id="results" class="card results">
+      <span class="pill">🔥 Fridge verdict</span>
+      <h3 id="roastName" style="margin:6px 0 2px;">Unnamed Fridge Era</h3>
+      <div class="score">
+        <div id="score" class="score-num">-</div>
+        <div>/10</div>
+      </div>
+      <p id="roast"></p>
+
+      <h3>🍳 2 Quick Recipes (with instructions)</h3>
+      <ul id="recipes"></ul>
+
+      <h3>🛒 Shopping List</h3>
+      <ul id="shopping"></ul>
+    </section>
+  </main>
+
+  <script>
+    const photoInput = document.getElementById('photoInput');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const copyResultsBtn = document.getElementById('copyResultsBtn');
+    const preview = document.getElementById('preview');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+
+    const roastNameEl = document.getElementById('roastName');
+    const scoreEl = document.getElementById('score');
+    const roastEl = document.getElementById('roast');
+    const recipesEl = document.getElementById('recipes');
+    const shoppingEl = document.getElementById('shopping');
+
+    let imageDataUrl = '';
+    let lastShareText = '';
+    let lastCopyResultsText = '';
+
+    function setStatus(message, kind = '') {
+      statusEl.textContent = message;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function listToHtml(list, target) {
+      target.innerHTML = '';
+      (Array.isArray(list) ? list : []).forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        target.appendChild(li);
+      });
+    }
+
+    function renderRecipes(recipes) {
+      recipesEl.innerHTML = '';
+      recipes.forEach((recipe, index) => {
+        const li = document.createElement('li');
+        const title = (recipe && recipe.title) ? recipe.title : `Recipe ${index + 1}`;
+        const instructions = (recipe && recipe.instructions) ? recipe.instructions : '';
+        li.innerHTML = `<strong>${title}</strong>${instructions ? `<br>${instructions}` : ''}`;
+        recipesEl.appendChild(li);
+      });
+    }
+
+    photoInput.addEventListener('change', () => {
+      const file = photoInput.files && photoInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        imageDataUrl = reader.result;
+        preview.src = imageDataUrl;
+        setStatus('Photo ready. Hit "Rate my fridge".', 'ok');
+      };
+      reader.onerror = () => setStatus('Could not read image file.', 'err');
+      reader.readAsDataURL(file);
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+      if (!imageDataUrl) {
+        setStatus('Upload a fridge photo first.', 'err');
+        return;
+      }
+
+      analyzeBtn.disabled = true;
+      shareBtn.disabled = true;
+      copyResultsBtn.disabled = true;
+      setStatus('Analyzing your fridge... 🕵️‍♂️', '');
+
+      try {
+        const res = await fetch('/api/roast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageDataUrl })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`API error ${res.status}: ${errText}`);
+        }
+
+        const parsed = await res.json();
+
+        const scoreRaw = Math.min(10, Math.max(1, Number(parsed.score) || 1));
+        const score = scoreRaw.toFixed(2);
+        const roastName = String(parsed.roast_name || 'The Mystery Chiller');
+        const roast = String(parsed.roast || 'Fridge review unavailable, but vibes are chaotic.');
+        const recipes = (Array.isArray(parsed.recipes) ? parsed.recipes : []).slice(0, 2).map((r, i) => {
+          if (typeof r === 'string') {
+            return { title: `Recipe ${i + 1}`, instructions: r };
+          }
+          return {
+            title: String((r && r.title) || `Recipe ${i + 1}`),
+            instructions: String((r && r.instructions) || '')
+          };
+        });
+        const shopping = Array.isArray(parsed.shopping_list) ? parsed.shopping_list : [];
+
+        roastNameEl.textContent = roastName;
+        scoreEl.textContent = String(score);
+        roastEl.textContent = roast;
+        renderRecipes(recipes);
+        listToHtml(shopping, shoppingEl);
+
+        lastShareText = `My fridge scored ${score}/10 — '${roastName}' 🦞 ratemyfridge.app`;
+        lastCopyResultsText = [
+          `Fridge Score: ${score}/10`,
+          `Roast Name: ${roastName}`,
+          '',
+          'Roast:',
+          roast,
+          '',
+          'Recipes:',
+          ...recipes.map((r, i) => `${i + 1}. ${r.title}\n${r.instructions}`)
+        ].join('\n');
+
+        shareBtn.disabled = false;
+        copyResultsBtn.disabled = false;
+        resultsEl.classList.add('show');
+        setStatus('Done. Your fridge has been judged. ⚖️', 'ok');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || 'Something went wrong.', 'err');
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    });
+
+    shareBtn.addEventListener('click', async () => {
+      if (!lastShareText) return;
+      try {
+        await navigator.clipboard.writeText(lastShareText);
+        setStatus('Copied social share text to clipboard. ✅', 'ok');
+      } catch {
+        setStatus('Could not copy automatically. Try again on HTTPS/localhost.', 'err');
+      }
+    });
+
+    copyResultsBtn.addEventListener('click', async () => {
+      if (!lastCopyResultsText) return;
+      try {
+        await navigator.clipboard.writeText(lastCopyResultsText);
+        setStatus('Copied full results to clipboard. ✅', 'ok');
+      } catch {
+        setStatus('Could not copy automatically. Try again on HTTPS/localhost.', 'err');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "rate-my-fridge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rate My Fridge Vercel app",
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}
