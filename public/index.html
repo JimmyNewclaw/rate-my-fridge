@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rate My Fridge</title>
+  <link rel="icon" type="image/png" href="Jimmy_NewUserClaw.png" />
   <meta property="og:title" content="Rate My Fridge" />
-  <meta property="og:description" content="Upload a fridge pic. Get roasted. Get fed. Get your score." />
+  <meta property="og:description" content="Upload a fridge pic. Get roasted. Get fed. Get your score. 🦞" />
   <meta property="og:url" content="https://rate-my-fridge.vercel.app" />
+  <meta property="og:image" content="https://rate-my-fridge.vercel.app/Jimmy_NewUserClaw.png" />
   <style>
     :root {
       --bg1: #5b2cff;
@@ -38,6 +40,8 @@
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     }
     h1 { margin: 0; font-size: clamp(1.6rem, 4.8vw, 2.4rem); line-height: 1.1; }
+    .hero { display: flex; align-items: center; gap: 10px; }
+    .mascot { width: 80px; height: 80px; object-fit: contain; }
     .sub { margin: 8px 0 0; color: var(--muted); font-size: 0.98rem; }
     .row { display: grid; gap: 10px; }
     @media (min-width: 640px) { .row.two { grid-template-columns: 1fr 1fr; } }
@@ -77,6 +81,20 @@
     .status { margin-top: 8px; font-size: 0.92rem; color: var(--muted); min-height: 1.2rem; }
     .status.err { color: var(--danger); }
     .status.ok { color: var(--ok); }
+    .hidden { display: none !important; }
+
+    @keyframes pulse {
+      0% { opacity: .45; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: .45; transform: scale(1); }
+    }
+    .loading {
+      margin-top: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #ffe27d;
+      animation: pulse 1s ease-in-out infinite;
+    }
     .results { display: none; }
     .results.show { display: block; }
     .score { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 8px; }
@@ -96,7 +114,10 @@
 <body>
   <main class="app">
     <section class="card">
-      <h1>🧊 Rate My Fridge</h1>
+      <div class="hero">
+        <img class="mascot" src="Jimmy_NewUserClaw.png" alt="Jimmy mascot" />
+        <h1>🧊 Rate My Fridge</h1>
+      </div>
       <p class="sub">Upload a fridge pic. Get roasted. Get fed. Get your score. 😂🥗</p>
     </section>
 
@@ -116,12 +137,12 @@
         <button id="analyzeBtn" class="btn btn-primary">Rate my fridge</button>
       </div>
 
-      <div style="margin-top:10px;" class="row two">
+      <div id="shareControls" style="margin-top:10px;" class="row two hidden">
         <button id="shareBtn" class="btn btn-secondary" disabled>Copy share text</button>
         <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
       </div>
 
-      <div style="margin-top:10px;" class="row">
+      <div id="socialControls" style="margin-top:10px;" class="row hidden">
         <div class="row two">
           <button id="shareXBtn" class="btn btn-social" disabled>Share on X</button>
           <button id="shareFacebookBtn" class="btn btn-social" disabled>Share on Facebook</button>
@@ -129,11 +150,11 @@
         <button id="shareRedditBtn" class="btn btn-social" disabled>Share on Reddit</button>
       </div>
 
-      <p class="tiny">MVP note: analysis runs through a serverless API route so the Google API key stays on the backend.</p>
+      <div id="loading" class="loading hidden">🦞 Roasting your fridge...</div>
       <div id="status" class="status"></div>
     </section>
 
-    <section class="card">
+    <section id="previewSection" class="card hidden">
       <img id="preview" class="preview" alt="Fridge preview" />
     </section>
 
@@ -151,6 +172,10 @@
 
       <h3>🛒 Shopping List</h3>
       <ul id="shopping"></ul>
+
+      <div style="margin-top:12px;">
+        <button id="resetBtn" class="btn btn-primary">Rate Another Fridge</button>
+      </div>
     </section>
   </main>
 
@@ -165,11 +190,16 @@
     const analyzeBtn = document.getElementById('analyzeBtn');
     const shareBtn = document.getElementById('shareBtn');
     const copyResultsBtn = document.getElementById('copyResultsBtn');
+    const resetBtn = document.getElementById('resetBtn');
     const shareXBtn = document.getElementById('shareXBtn');
     const shareFacebookBtn = document.getElementById('shareFacebookBtn');
     const shareRedditBtn = document.getElementById('shareRedditBtn');
 
     const preview = document.getElementById('preview');
+    const previewSection = document.getElementById('previewSection');
+    const loadingEl = document.getElementById('loading');
+    const shareControls = document.getElementById('shareControls');
+    const socialControls = document.getElementById('socialControls');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
 
@@ -217,6 +247,7 @@
       reader.onload = () => {
         imageDataUrl = reader.result;
         preview.src = imageDataUrl;
+        previewSection.classList.remove('hidden');
         setStatus('Photo ready. Hit "Rate my fridge".', 'ok');
       };
       reader.onerror = () => setStatus('Could not read image file.', 'err');
@@ -287,7 +318,8 @@
       shareBtn.disabled = true;
       copyResultsBtn.disabled = true;
       enableSocialButtons(false);
-      setStatus('Analyzing your fridge... 🕵️‍♂️', '');
+      loadingEl.classList.remove('hidden');
+      setStatus('', '');
 
       try {
         const res = await fetch('/api/roast', {
@@ -339,6 +371,8 @@
         shareBtn.disabled = false;
         copyResultsBtn.disabled = false;
         enableSocialButtons(true);
+        shareControls.classList.remove('hidden');
+        socialControls.classList.remove('hidden');
         resultsEl.classList.add('show');
         setStatus('Done. Your fridge has been judged. ⚖️', 'ok');
       } catch (err) {
@@ -346,6 +380,7 @@
         setStatus(err.message || 'Something went wrong.', 'err');
       } finally {
         analyzeBtn.disabled = false;
+        loadingEl.classList.add('hidden');
       }
     });
 
@@ -382,6 +417,24 @@
     shareRedditBtn.addEventListener('click', () => {
       if (!lastShareText) return;
       openShare(`https://www.reddit.com/submit?title=${encodeURIComponent(lastShareText)}`);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      imageDataUrl = '';
+      lastShareText = '';
+      lastCopyResultsText = '';
+      photoInput.value = '';
+      cameraInput.value = '';
+      preview.src = '';
+      previewSection.classList.add('hidden');
+      resultsEl.classList.remove('show');
+      shareControls.classList.add('hidden');
+      socialControls.classList.add('hidden');
+      shareBtn.disabled = true;
+      copyResultsBtn.disabled = true;
+      enableSocialButtons(false);
+      setStatus('Ready for the next fridge. 🧊', 'ok');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   </script>
 </body>
