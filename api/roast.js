@@ -1,9 +1,57 @@
 function parseJsonSafe(text) {
-  try { return JSON.parse(text); } catch (_) {}
-  const match = String(text || '').match(/\{[\s\S]*\}/);
-  if (match) {
-    try { return JSON.parse(match[0]); } catch (_) {}
+  const raw = String(text || '').trim();
+
+  const candidates = [];
+
+  // Original raw text
+  candidates.push(raw);
+
+  // Strip markdown fences
+  const noFences = raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+  candidates.push(noFences);
+
+  // Extract likely JSON object block
+  const firstBrace = noFences.indexOf('{');
+  const lastBrace = noFences.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(noFences.slice(firstBrace, lastBrace + 1));
   }
+
+  for (const c of candidates) {
+    if (!c) continue;
+
+    // 1) direct parse
+    try {
+      const parsed = JSON.parse(c);
+      if (parsed && typeof parsed === 'object') return parsed;
+      if (typeof parsed === 'string') {
+        try {
+          const reparsed = JSON.parse(parsed);
+          if (reparsed && typeof reparsed === 'object') return reparsed;
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    // 2) try unescaped JSON-in-string style payloads
+    try {
+      let t = c;
+      if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+        t = t.slice(1, -1);
+      }
+      t = t
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\"/g, '"');
+      const parsed = JSON.parse(t);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+  }
+
   return null;
 }
 
