@@ -41,6 +41,43 @@
     h1 { margin: 0; font-size: clamp(1.6rem, 4.8vw, 2.4rem); line-height: 1.1; }
     .hero { display: flex; align-items: center; gap: 10px; }
     .mascot { width: 80px; height: 80px; object-fit: contain; }
+    .analyze-wrap { position: relative; }
+    .mascot-side {
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .mascot-side img { width: 72px; height: 72px; object-fit: contain; }
+    .speech {
+      background: #ffffff;
+      color: #111;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      max-width: 130px;
+      line-height: 1.2;
+      position: relative;
+    }
+    .speech::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-width: 7px 7px 7px 0;
+      border-style: solid;
+      border-color: transparent #fff transparent transparent;
+    }
+    @media (max-width: 900px) {
+      .mascot-side { position: static; transform: none; margin-top: 8px; pointer-events: auto; }
+      .speech::before { display: none; }
+    }
     .sub { margin: 8px 0 0; color: var(--muted); font-size: 0.98rem; }
     .row { display: grid; gap: 10px; }
     @media (min-width: 640px) { .row.two { grid-template-columns: 1fr 1fr; } }
@@ -116,7 +153,7 @@
     <section class="card">
       <div class="hero">
         <img class="mascot" src="Jimmy_NewUserClaw.png" alt="Jimmy mascot" />
-        <h1>🧊 Rate My Fridge</h1>
+        <h1>Rate My Fridge</h1>
       </div>
       <p class="sub">Upload a fridge pic. Get roasted. Get fed. Get your score. 😂🥗</p>
     </section>
@@ -134,7 +171,13 @@
 
       <div style="margin-top:10px;" class="row two">
         <button id="cameraBtn" class="btn btn-secondary">📷 Open Camera</button>
-        <button id="analyzeBtn" class="btn btn-primary">Rate my fridge</button>
+        <div class="analyze-wrap">
+          <button id="analyzeBtn" class="btn btn-primary">Rate my fridge</button>
+          <div class="mascot-side">
+            <img src="Jimmy_NewUserClaw.png" alt="Jimmy mascot" />
+            <div class="speech">Upload your fridge pic. I got you. 🗣️</div>
+          </div>
+        </div>
       </div>
 
       <div id="shareControls" style="margin-top:10px;" class="row hidden">
