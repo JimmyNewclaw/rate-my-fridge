@@ -79,6 +79,17 @@
       .speech::before { display: none; }
     }
     .sub { margin: 8px 0 0; color: var(--muted); font-size: 0.98rem; }
+    .chip-row { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-block;
+      font-size: 0.78rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.06);
+      font-weight: 700;
+    }
     .row { display: grid; gap: 10px; }
     @media (min-width: 640px) { .row.two { grid-template-columns: 1fr 1fr; } }
     .btn {
@@ -155,7 +166,11 @@
         <img class="mascot" src="fridge-mascot-top.jpg" alt="Fridge mascot" />
         <h1>Rate My Fridge</h1>
       </div>
-      <p class="sub">Upload a fridge pic. Get roasted. Get fed. Get your score. 😂🥗</p>
+      <p id="subText" class="sub">Upload a fridge pic. Get roasted. Get fed. Get your score. 😂🥗</p>
+      <div class="chip-row">
+        <span id="dailyChip" class="chip">Daily target: --/10</span>
+        <span id="streakChip" class="chip">Streak: 0d</span>
+      </div>
     </section>
 
     <section class="card">
@@ -181,6 +196,7 @@
 
       <div id="shareControls" style="margin-top:10px;" class="row hidden">
         <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
+        <button id="challengeBtn" class="btn btn-secondary" disabled>Challenge a Friend</button>
       </div>
 
       <div id="socialControls" style="margin-top:10px;" class="row hidden">
@@ -223,6 +239,10 @@
   <script>
     const APP_URL = 'https://rate-my-fridge.vercel.app';
 
+    const subText = document.getElementById('subText');
+    const dailyChip = document.getElementById('dailyChip');
+    const streakChip = document.getElementById('streakChip');
+
     const photoInput = document.getElementById('photoInput');
     const cameraInput = document.getElementById('cameraInput');
     const uploadZone = document.getElementById('uploadZone');
@@ -230,6 +250,7 @@
 
     const analyzeBtn = document.getElementById('analyzeBtn');
     const copyResultsBtn = document.getElementById('copyResultsBtn');
+    const challengeBtn = document.getElementById('challengeBtn');
     const resetBtn = document.getElementById('resetBtn');
     const shareXBtn = document.getElementById('shareXBtn');
     const shareFacebookBtn = document.getElementById('shareFacebookBtn');
@@ -252,6 +273,48 @@
     let imageDataUrl = '';
     let lastShareText = '';
     let lastCopyResultsText = '';
+    let lastScore = null;
+
+    function getDailyTarget() {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 0);
+      const dayOfYear = Math.floor((now - start) / 86400000);
+      return (6 + ((dayOfYear * 3) % 4)).toFixed(2);
+    }
+
+    function updateDailyChip() {
+      dailyChip.textContent = `Daily target: ${getDailyTarget()}/10`;
+    }
+
+    function updateStreak() {
+      const today = new Date().toISOString().slice(0, 10);
+      const last = localStorage.getItem('rmfLastPlayedDate');
+      let streak = Number(localStorage.getItem('rmfStreakDays') || 0);
+
+      if (!last) streak = 1;
+      else if (last !== today) {
+        const diff = Math.round((new Date(today) - new Date(last)) / 86400000);
+        streak = diff === 1 ? streak + 1 : 1;
+      }
+
+      localStorage.setItem('rmfLastPlayedDate', today);
+      localStorage.setItem('rmfStreakDays', String(streak));
+      streakChip.textContent = `Streak: ${streak}d`;
+      return streak;
+    }
+
+    function applyChallengeFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const t = Number(params.get('target') || 0);
+      if (t > 0) {
+        subText.textContent = `Challenge mode: Beat ${t.toFixed(2)}/10 with your fridge. 🥶🔥`;
+      }
+    }
+
+    function loadStreakUi() {
+      const streak = Number(localStorage.getItem('rmfStreakDays') || 0);
+      streakChip.textContent = `Streak: ${streak}d`;
+    }
 
     function setStatus(message, kind = '') {
       statusEl.textContent = message;
@@ -356,6 +419,7 @@
 
       analyzeBtn.disabled = true;
       copyResultsBtn.disabled = true;
+      challengeBtn.disabled = true;
       enableSocialButtons(false);
       loadingEl.classList.remove('hidden');
       setStatus('', '');
@@ -376,6 +440,7 @@
 
         const scoreRaw = Math.min(10, Math.max(1, Number(parsed.score) || 1));
         const score = scoreRaw.toFixed(2);
+        lastScore = Number(score);
         const roastName = String(parsed.roast_name || 'The Mystery Chiller');
         const roast = String(parsed.roast || 'Fridge review unavailable, but vibes are chaotic.');
         const recipes = (Array.isArray(parsed.recipes) ? parsed.recipes : []).slice(0, 2).map((r, i) => {
@@ -408,11 +473,16 @@
         ].join('\n');
 
         copyResultsBtn.disabled = false;
+        challengeBtn.disabled = false;
         enableSocialButtons(true);
         shareControls.classList.remove('hidden');
         socialControls.classList.remove('hidden');
         resultsEl.classList.add('show');
-        setStatus('Done. Your fridge has been judged. ⚖️', 'ok');
+
+        const streak = updateStreak();
+        const target = Number(getDailyTarget());
+        const beatText = lastScore >= target ? `🔥 You beat today's target (${target.toFixed(2)}).` : `🎯 Today's target is ${target.toFixed(2)}.`;
+        setStatus(`Done. Your fridge has been judged. ⚖️ ${beatText} Streak ${streak}d.`, 'ok');
       } catch (err) {
         console.error(err);
         setStatus(err.message || 'Something went wrong.', 'err');
@@ -429,6 +499,23 @@
         setStatus('Copied full results to clipboard. ✅', 'ok');
       } catch {
         setStatus('Could not copy automatically. Try again on HTTPS/localhost.', 'err');
+      }
+    });
+
+    challengeBtn.addEventListener('click', async () => {
+      if (!lastScore) return;
+      const url = `${APP_URL}?target=${encodeURIComponent(lastScore.toFixed(2))}`;
+      const text = `My fridge scored ${lastScore.toFixed(2)}/10 in Rate My Fridge. Can you beat it? ${url}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Rate My Fridge Challenge', text, url });
+          setStatus('Challenge shared. 🥊', 'ok');
+        } else {
+          await navigator.clipboard.writeText(text);
+          setStatus('Challenge link copied. Send it to a friend. 🔗', 'ok');
+        }
+      } catch {
+        setStatus('Could not share challenge right now.', 'err');
       }
     });
 
@@ -451,6 +538,7 @@
       imageDataUrl = '';
       lastShareText = '';
       lastCopyResultsText = '';
+      lastScore = null;
       photoInput.value = '';
       cameraInput.value = '';
       preview.src = '';
@@ -459,10 +547,15 @@
       shareControls.classList.add('hidden');
       socialControls.classList.add('hidden');
       copyResultsBtn.disabled = true;
+      challengeBtn.disabled = true;
       enableSocialButtons(false);
       setStatus('Ready for the next fridge. 🧊', 'ok');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
+
+    updateDailyChip();
+    loadStreakUi();
+    applyChallengeFromUrl();
   </script>
 </body>
 </html>
