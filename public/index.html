@@ -174,6 +174,7 @@
       <div class="chip-row">
         <span id="dailyChip" class="chip">Daily target: --/10</span>
         <span id="streakChip" class="chip">Streak: 0d</span>
+        <span id="bestChip" class="chip">Best: --/10</span>
       </div>
     </section>
 
@@ -246,6 +247,7 @@
     const subText = document.getElementById('subText');
     const dailyChip = document.getElementById('dailyChip');
     const streakChip = document.getElementById('streakChip');
+    const bestChip = document.getElementById('bestChip');
 
     const photoInput = document.getElementById('photoInput');
     const cameraInput = document.getElementById('cameraInput');
@@ -318,6 +320,11 @@
     function loadStreakUi() {
       const streak = Number(localStorage.getItem('rmfStreakDays') || 0);
       streakChip.textContent = `Streak: ${streak}d`;
+    }
+
+    function updateBestUi() {
+      const best = Number(localStorage.getItem('rmfBestScore') || 0);
+      bestChip.textContent = best > 0 ? `Best: ${best.toFixed(2)}/10` : 'Best: --/10';
     }
 
     function setStatus(message, kind = '') {
@@ -487,16 +494,25 @@
 
         copyResultsBtn.disabled = false;
         challengeBtn.disabled = false;
+        challengeBtn.textContent = '🔥 Challenge a Friend';
         enableSocialButtons(true);
         shareControls.classList.remove('hidden');
         socialControls.classList.remove('hidden');
         resultsEl.classList.add('show');
 
+        const priorBest = Number(localStorage.getItem('rmfBestScore') || 0);
+        if (lastScore > priorBest) {
+          localStorage.setItem('rmfBestScore', String(lastScore));
+          updateBestUi();
+        }
+
         const streak = updateStreak();
         const target = Number(getDailyTarget());
         const beatText = lastScore >= target ? `🔥 You beat today's target (${target.toFixed(2)}).` : `🎯 Today's target is ${target.toFixed(2)}.`;
-        setStatus(`Done. Your fridge has been judged. ⚖️ ${beatText} Streak ${streak}d.`, 'ok');
+        const bestText = lastScore > priorBest ? ' 🏆 New personal best!' : '';
+        setStatus(`Done. Your fridge has been judged. ⚖️ ${beatText} Streak ${streak}d.${bestText}`, 'ok');
         playSfx('/result-sfx.mp3', 0.9);
+        resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (err) {
         console.error(err);
         setStatus(err.message || 'Something went wrong.', 'err');
@@ -530,6 +546,8 @@
         }
       } catch {
         setStatus('Could not share challenge right now.', 'err');
+      } finally {
+        challengeBtn.textContent = 'Challenge a Friend';
       }
     });
 
@@ -562,6 +580,7 @@
       socialControls.classList.add('hidden');
       copyResultsBtn.disabled = true;
       challengeBtn.disabled = true;
+      challengeBtn.textContent = 'Challenge a Friend';
       enableSocialButtons(false);
       setStatus('Ready for the next fridge. 🧊', 'ok');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -569,6 +588,7 @@
 
     updateDailyChip();
     loadStreakUi();
+    updateBestUi();
     applyChallengeFromUrl();
   </script>
 </body>
