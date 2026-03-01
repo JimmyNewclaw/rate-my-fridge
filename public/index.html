@@ -143,7 +143,11 @@
       animation: pulse 1s ease-in-out infinite;
     }
     .results { display: none; }
-    .results.show { display: block; }
+    .results.show { display: block; animation: popIn .28s ease; }
+    @keyframes popIn {
+      0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
     .score { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 8px; }
     .score-num {
       font-size: clamp(2.2rem, 10vw, 4rem); font-weight: 900; line-height: 1;
@@ -195,8 +199,8 @@
       </div>
 
       <div id="shareControls" style="margin-top:10px;" class="row hidden">
-        <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
         <button id="challengeBtn" class="btn btn-secondary" disabled>Challenge a Friend</button>
+        <button id="copyResultsBtn" class="btn btn-secondary" disabled>Copy Results</button>
       </div>
 
       <div id="socialControls" style="margin-top:10px;" class="row hidden">
@@ -367,6 +371,14 @@
       window.open(url, '_blank', 'noopener,noreferrer');
     }
 
+    function playSfx(src, volume = 0.9) {
+      try {
+        const a = new Audio(src);
+        a.volume = Math.max(0, Math.min(1, volume));
+        a.play().catch(() => {});
+      } catch {}
+    }
+
     uploadZone.addEventListener('click', () => photoInput.click());
     uploadZone.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -421,6 +433,7 @@
       copyResultsBtn.disabled = true;
       challengeBtn.disabled = true;
       enableSocialButtons(false);
+      playSfx('/submit-sfx.mp3', 0.85);
       loadingEl.classList.remove('hidden');
       setStatus('', '');
 
@@ -483,6 +496,7 @@
         const target = Number(getDailyTarget());
         const beatText = lastScore >= target ? `🔥 You beat today's target (${target.toFixed(2)}).` : `🎯 Today's target is ${target.toFixed(2)}.`;
         setStatus(`Done. Your fridge has been judged. ⚖️ ${beatText} Streak ${streak}d.`, 'ok');
+        playSfx('/result-sfx.mp3', 0.9);
       } catch (err) {
         console.error(err);
         setStatus(err.message || 'Something went wrong.', 'err');
