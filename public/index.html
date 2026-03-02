@@ -53,6 +53,14 @@
       pointer-events: none;
     }
     .mascot-side img { width: 170px; height: auto; object-fit: contain; }
+    .mascot-side.talking img {
+      animation: talkBob .18s ease-in-out infinite alternate;
+      filter: drop-shadow(0 4px 10px rgba(255, 220, 120, 0.45));
+    }
+    @keyframes talkBob {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-2px) scale(1.02); }
+    }
     .speech {
       background: #ffffff;
       color: #111;
@@ -266,6 +274,7 @@
     const previewSection = document.getElementById('previewSection');
     const workCard = document.getElementById('workCard');
     const loadingEl = document.getElementById('loading');
+    const mascotSide = document.querySelector('.mascot-side');
     const shareControls = document.getElementById('shareControls');
     const socialControls = document.getElementById('socialControls');
     const statusEl = document.getElementById('status');
@@ -404,8 +413,16 @@
       try {
         const a = new Audio(src);
         a.volume = Math.max(0, Math.min(1, volume));
-        a.play().catch(() => {});
-      } catch {}
+
+        mascotSide?.classList.add('talking');
+        const stopTalking = () => mascotSide?.classList.remove('talking');
+        a.addEventListener('ended', stopTalking, { once: true });
+        a.addEventListener('error', stopTalking, { once: true });
+
+        a.play().catch(() => stopTalking());
+      } catch {
+        mascotSide?.classList.remove('talking');
+      }
     }
 
     uploadZone.addEventListener('click', () => photoInput.click());
