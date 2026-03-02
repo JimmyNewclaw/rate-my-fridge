@@ -280,6 +280,20 @@
     let lastShareText = '';
     let lastCopyResultsText = '';
     let lastScore = null;
+    let submitSfxIndex = Number(localStorage.getItem('rmfSubmitSfxIndex') || 0);
+
+    const submitSfxPool = [
+      '/submit-sfx.mp3',
+      '/submit-sfx-2.mp3',
+      '/submit-sfx-3.mp3'
+    ];
+
+    function playNextSubmitSfx() {
+      const src = submitSfxPool[submitSfxIndex % submitSfxPool.length];
+      submitSfxIndex = (submitSfxIndex + 1) % submitSfxPool.length;
+      localStorage.setItem('rmfSubmitSfxIndex', String(submitSfxIndex));
+      playSfx(src, 0.85);
+    }
 
     function getDailyTarget() {
       const now = new Date();
@@ -440,7 +454,7 @@
       copyResultsBtn.disabled = true;
       challengeBtn.disabled = true;
       enableSocialButtons(false);
-      playSfx('/submit-sfx.mp3', 0.85);
+      playNextSubmitSfx();
       loadingEl.classList.remove('hidden');
       setStatus('', '');
 
