@@ -178,7 +178,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section id="workCard" class="card">
       <input id="photoInput" type="file" accept="image/*" hidden />
       <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
 
@@ -264,11 +264,19 @@
 
     const preview = document.getElementById('preview');
     const previewSection = document.getElementById('previewSection');
+    const workCard = document.getElementById('workCard');
     const loadingEl = document.getElementById('loading');
     const shareControls = document.getElementById('shareControls');
     const socialControls = document.getElementById('socialControls');
     const statusEl = document.getElementById('status');
     const resultsEl = document.getElementById('results');
+
+    // Keep newest content above uploader so users don't scroll down to see updates.
+    if (workCard && previewSection && resultsEl && workCard.parentNode) {
+      const parent = workCard.parentNode;
+      parent.insertBefore(previewSection, workCard);
+      parent.insertBefore(resultsEl, workCard);
+    }
 
     const roastNameEl = document.getElementById('roastName');
     const scoreEl = document.getElementById('score');
